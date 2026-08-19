@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poste de Pilotage KAM</title>
+<meta name="theme-color" content="#1F4E42">
+<meta name="description" content="Gestion des tâches, planning hebdomadaire et alertes pour le poste KAM">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KAM Planner">
+<style>
+  :root{
+    --ink:#1B2420; --paper:#EEE8D9; --paper-dk:#E2DAC5;
+    --forest:#1F4E42; --forest-dk:#153731; --ochre:#B98029;
+    --red:#9C3B34; --sage:#6E8B6A; --slate:#7C8A82;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;}
+  .font-display{font-family:Georgia,'Times New Roman',serif; font-weight:700;}
+  .font-mono{font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;}
+  #app{min-height:100vh; display:flex; flex-direction:column;}
+  @media(min-width:820px){ #app{flex-direction:row;} }
+
+  /* Sidebar */
+  .sidebar{background:var(--paper-dk); border-bottom:1px solid rgba(27,36,32,.15); flex-shrink:0;}
+  @media(min-width:820px){ .sidebar{width:230px; border-bottom:none; border-right:1px solid rgba(27,36,32,.15); display:flex; flex-direction:column;} }
+  .sidebar-inner{padding:18px 16px; flex:1;}
+  .brand{display:flex; align-items:center; gap:8px; margin-bottom:2px;}
+  .brand h1{font-size:18px; color:var(--forest-dk); margin:0;}
+  .brand-sub{font-size:11px; color:var(--slate); font-family:'SFMono-Regular',monospace; margin:0 0 14px 0;}
+  nav.tabs{display:flex; gap:4px; overflow-x:auto;}
+  @media(min-width:820px){ nav.tabs{flex-direction:column;} }
+  .navbtn{display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:6px; font-size:14px;
+    background:transparent; border:none; cursor:pointer; white-space:nowrap; color:var(--ink); flex-shrink:0;}
+  .navbtn.active{background:var(--forest); color:var(--paper);}
+  .navbtn .badge{margin-left:auto; font-size:10px; font-family:monospace; padding:1px 6px; border-radius:10px; background:var(--forest); color:var(--paper);}
+  .navbtn.active .badge{background:var(--paper); color:var(--forest-dk);}
+  .navbtn .badge.red{background:var(--red); color:var(--paper);}
+  .sidebar-footer{padding:12px 16px; font-size:10px; font-family:monospace; color:var(--slate); display:none;}
+  @media(min-width:820px){ .sidebar-footer{display:block;} }
+
+  /* Main */
+  main{flex:1; padding:18px; max-width:920px;}
+  @media(min-width:820px){ main{padding:32px;} }
+  header.view-head{margin-bottom:22px;}
+  .eyebrow{font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--ochre); font-family:monospace; margin:0 0 2px 0;}
+  h2.title{font-size:28px; color:var(--forest-dk); margin:0; font-family:Georgia,serif; font-weight:700;}
+  .subtext{font-size:13px; color:var(--slate); margin:6px 0 0 0; max-width:520px;}
+
+  /* Task row */
+  .task{display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:8px; border:1px solid rgba(27,36,32,.12);
+    background:rgba(255,255,255,.5); margin-bottom:8px; border-left-width:4px; border-left-style:solid;}
+  .task .status-btn{background:none; border:none; cursor:pointer; padding:0; display:flex;}
+  .task .body{flex:1; min-width:0;}
+  .task .meta{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:3px;}
+  .stamp{display:inline-flex; align-items:center; gap:3px; border:2px solid var(--forest); color:var(--forest);
+    background:rgba(31,78,66,.06); border-radius:3px; padding:1px 6px; font-size:10px; font-family:monospace;
+    transform:rotate(-1deg); letter-spacing:.02em;}
+  .type-tag{font-size:10px; padding:1px 6px; border-radius:4px; background:rgba(27,36,32,.06);}
+  .reminder-tag{font-size:10px; color:var(--ochre); font-family:monospace;}
+  .task p.tt{margin:0; font-size:14px;}
+  .task p.tt.done{text-decoration:line-through; opacity:.5;}
+  .priority-dot{display:inline-flex; align-items:center; gap:5px; font-size:11px; opacity:.8; flex-shrink:0;}
+  .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+  .status-pill{font-size:11px; padding:2px 8px; border-radius:10px; color:var(--paper); flex-shrink:0; display:none;}
+  @media(min-width:600px){ .status-pill{display:inline-block;} }
+  .iconbtn{background:none; border:none; cursor:pointer; padding:5px; border-radius:5px; display:flex;}
+  .iconbtn:hover{background:rgba(0,0,0,.06);}
+
+  .empty{padding:32px; text-align:center; border-radius:8px; border:1px dashed rgba(27,36,32,.25); color:var(--slate); font-size:13px;}
+
+  /* Filters */
+  .filters{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
+  .filters input[type=text], select, input[type=datetime-local], textarea, input[type=text].wide{
+    font-size:13px; padding:8px 10px; border-radius:6px; border:1px solid rgba(27,36,32,.2); background:#fff; color:var(--ink); font-family:inherit;}
+  .search-wrap{position:relative;}
+  .search-wrap input{padding-left:28px;}
+  .search-wrap .icon{position:absolute; left:8px; top:9px; opacity:.5; font-size:13px;}
+
+  .btn{display:inline-flex; align-items:center; gap:6px; padding:9px 14px; border-radius:6px; font-size:13px; border:none; cursor:pointer; font-family:inherit;}
+  .btn-primary{background:var(--forest); color:var(--paper);}
+  .btn-outline{background:transparent; border:1px solid var(--forest); color:var(--forest);}
+  .btn:disabled{opacity:.4; cursor:default;}
+
+  header.view-head.row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+
+  /* Week grid */
+  .weekwrap{overflow-x:auto;}
+  .weekgrid{display:grid; grid-template-columns:100px repeat(5,1fr); gap:8px; min-width:700px;}
+  .daycol-head{font-family:Georgia,serif; font-weight:700; text-align:center; padding:8px; border-radius:6px 6px 0 0; background:var(--forest); color:var(--paper); font-size:14px;}
+  .slot-label{display:flex; align-items:center; font-size:11px; font-family:monospace; color:var(--slate); padding:0 8px;}
+  .weekgrid textarea{width:100%; height:96px; resize:none; font-size:12px;}
+  .weekgrid textarea.flex{border-color:var(--ochre); background:rgba(185,128,41,.08);}
+
+  /* Alerts */
+  .alert-status{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px; border-radius:8px; border:1px solid rgba(27,36,32,.15); background:#fff; margin-bottom:20px;}
+  .alert-status .left{display:flex; align-items:center; gap:10px;}
+  .alert-status .lbl{font-size:13px; font-weight:600; margin:0;}
+  .alert-status .sub{font-size:11px; color:var(--slate); margin:2px 0 0 0;}
+  h3.section{font-size:13px; color:var(--slate); margin:0 0 8px 0; font-weight:600;}
+
+  /* Modal */
+  .overlay{position:fixed; inset:0; background:rgba(27,36,32,.45); display:flex; align-items:center; justify-content:center; padding:16px; z-index:100;}
+  .modal{width:100%; max-width:380px; background:var(--paper); border-radius:10px; padding:20px; box-shadow:0 10px 40px rgba(0,0,0,.25);}
+  .modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .modal-head h3{font-family:Georgia,serif; color:var(--forest-dk); margin:0; font-size:17px;}
+  .field{display:block; margin-bottom:12px;}
+  .field .flabel{font-size:11px; font-weight:600; color:var(--slate); display:block; margin-bottom:4px;}
+  .field select, .field input, .field textarea{width:100%;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+  /* Toast */
+  #toast{position:fixed; bottom:16px; right:16px; max-width:280px; padding:12px 14px; border-radius:8px;
+    background:var(--forest-dk); color:var(--paper); font-size:13px; display:none; z-index:200; box-shadow:0 6px 24px rgba(0,0,0,.3);}
+  #toast.show{display:flex; gap:8px; align-items:flex-start;}
+
+  #installBanner{display:none; align-items:center; gap:10px; justify-content:space-between; background:var(--ochre); color:#211a0d;
+    padding:10px 14px; font-size:12px;}
+  #installBanner button{background:var(--forest-dk); color:var(--paper); border:none; padding:6px 12px; border-radius:5px; font-size:12px; cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="installBanner">
+  <span>Installe cette page comme application sur cet appareil pour un accès rapide.</span>
+  <button id="installBtn">Installer</button>
+</div>
+<div id="app"></div>
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   Poste de Pilotage KAM — app autonome (localStorage)
+   ========================================================= */
+const DAYS = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi"];
+const SLOTS = ["Matin","Après-midi","Fin de journée"];
+const STATUS_ORDER = ["À faire","En cours","Fait","Bloqué"];
+const PRIORITY_COLOR = {Haute:"#9C3B34", Moyenne:"#B98029", Basse:"#7C8A82"};
+const STATUS_COLOR = {"À faire":"#7C8A82","En cours":"#B98029","Fait":"#1F4E42","Bloqué":"#9C3B34"};
+
+const SEED_TASKS = [
+["Distrib strat","100","Contribue à la définition du plan d'action stratégique PAYS","Trimestriel","Haute","Vendredi"],
+["Distrib","1000","Visite régulière des importateurs","Hebdomadaire","Haute","Variable"],
+["Distrib","1005","Prépare ses réunions avec les importateurs","Hebdomadaire","Haute","Lundi"],
+["Distrib","1010","Identifie les besoins et problématiques des importateurs","Continu","Moyenne","Mardi"],
+["Distrib","1020","Propose des solutions en amont","Continu","Moyenne","Mercredi"],
+["Distrib G7","1100","Réunions mensuelles importateurs stratégiques","Mensuel","Haute","Jeudi"],
+["Distrib G7","1120","Plan d'action KAM importateurs stratégiques","Mensuel","Haute","Jeudi"],
+["Process commandes","2000","Construction de la commande importateur","Hebdomadaire","Haute","Lundi"],
+["Process commandes","2005","Suivi commandes (ADV/Supply/CLAP)","Hebdomadaire","Haute","Lundi"],
+["Process commandes","2010","Gestion des extra-orders","Ponctuel","Moyenne","Lundi"],
+["Forecasts","3000","Suivi et actualisation mensuelle des forecasts","Mensuel","Haute","Jeudi"],
+["Forecasts","3100","Challenge / rédaction forecasts annuels","Annuel","Haute","Jeudi"],
+["Forecasts","3120","Vérification alignement forecasts / objectifs","Mensuel","Moyenne","Jeudi"],
+["Forecasts","3150","Récolte sorties et stocks mensuels","Mensuel","Haute","Jeudi"],
+["Action terrain","4000","Promotion de la gamme sur le terrain","Ponctuel","Haute","Variable"],
+["Action terrain","4055","Réalise les actions des plans d'action","Ponctuel","Moyenne","Variable"],
+["Action terrain","4057","Mise en place actions commerciales segments","Ponctuel","Moyenne","Variable"],
+["Action terrain","4060","Contribution au lancement d'un produit","Ponctuel","Haute","Variable"],
+["Action terrain","4070","Orientation des acheteurs vers importateurs","Continu","Basse","Variable"],
+["Action terrain","4100","Actions pour contrer les concurrents","Mensuel","Moyenne","Mercredi"],
+["Action terrain","4100b","Suivi des projets structurants importateurs","Mensuel","Moyenne","Jeudi"],
+["Action terrain","4200","Actions commerciales stocks à risque","Ponctuel","Haute","Variable"],
+["Action terrain","4300","Gestion goodies et logistique événementielle","Ponctuel","Basse","Variable"],
+["Infos terrain","5000","Veille concurrentielle continue sur les prix","Continu","Moyenne","Mercredi"],
+["Infos terrain","5100","Analyses concurrentielles par importateur/labo","Annuel","Moyenne","Vendredi"],
+["Reporting","7000","Rapport mensuel — axes stratégiques","Mensuel","Haute","Vendredi"],
+["Reporting","7100","Suivi CA et alerte management","Hebdomadaire","Haute","Vendredi"],
+["Lobbying","8000","Lobbying auprès des autorités","Ponctuel","Moyenne","Vendredi"],
+["Lobbying","8100","Contact autorités — autorisations d'importation","Ponctuel","Moyenne","Vendredi"],
+["Lobbying","8200","Rencontre des leaders d'opinion","Mensuel","Basse","Vendredi"],
+["Behaviour","10000","Travail en équipe — alignement interne","Hebdomadaire","Moyenne","Lundi"],
+["Behaviour","10100","Travail en équipe élargie","Mensuel","Moyenne","Jeudi"],
+["Behaviour","10200","Développement des compétences","Continu","Basse","Vendredi"],
+["Reg affairs","100","Dépôt des dossiers AMM","Ponctuel","Haute","Vendredi"],
+["Reg affairs","200","Suivi règlement factures autorités","Mensuel","Moyenne","Vendredi"],
+["Reg affairs","300","Info dates de tenue des commissions","Continu","Moyenne","Vendredi"],
+["Reg affairs","400","Lobbying / networking KOL réglementaires","Ponctuel","Basse","Vendredi"],
+["Reg affairs","500","Lien avec équipes CLAP","Continu","Moyenne","Vendredi"],
+["Reg affairs","9000","Responsable pharmacovigilance pays","Continu","Haute","Vendredi"],
+].map((t,i)=>({id:"seed-"+i, type:t[0], code:t[1], title:t[2], freq:t[3], priority:t[4], day:t[5],
+  status:"À faire", reminderAt:"", notified:false, notes:""}));
+
+const SEED_WEEK = {
+"Lundi-Matin":"Planification semaine + suivi commandes/process (2000/2005)",
+"Lundi-Après-midi":"Forecasts : suivi/actualisation + suivi CA (7100)",
+"Lundi-Fin de journée":"Alignement interne (10000)",
+"Mardi-Matin":"Suivi importateurs à distance (1005/1010/1020)",
+"Mardi-Après-midi":"CRÉNEAU TERRAIN FLEXIBLE",
+"Mardi-Fin de journée":"Compte-rendu si sortie terrain",
+"Mercredi-Matin":"Reg affairs (100/200/300/500)",
+"Mercredi-Après-midi":"Veille concurrentielle (5000/5100) + 4100",
+"Mercredi-Fin de journée":"Mise à jour du suivi",
+"Jeudi-Matin":"Réunions G7 si prévues (1100/1120)",
+"Jeudi-Après-midi":"CRÉNEAU TERRAIN FLEXIBLE",
+"Jeudi-Fin de journée":"Équipe élargie / compétences (10100/10200)",
+"Vendredi-Matin":"Lobbying + pharmacovigilance (8000/8100/9000)",
+"Vendredi-Après-midi":"Rapport mensuel (7000) + stratégie (100)",
+"Vendredi-Fin de journée":"Bilan semaine + préparation suivante",
+};
+
+// ---------------- state ----------------
+let state = {
+  tasks: load("kam-planner:tasks", SEED_TASKS),
+  week: load("kam-planner:week", SEED_WEEK),
+  view: "today",
+  filterType: "Tous", filterPriority: "Toutes", filterStatus: "Tous", query: "",
+  editingId: null, showAdd: false,
+};
+const notified = new Set();
+
+function load(key, fallback){
+  try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; }
+}
+function save(){
+  try{
+    localStorage.setItem("kam-planner:tasks", JSON.stringify(state.tasks));
+    localStorage.setItem("kam-planner:week", JSON.stringify(state.week));
+  }catch(e){}
+}
+function esc(s){ return (s||"").toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function isDue(t){
+  if(!t.reminderAt || t.status==="Fait") return false;
+  return new Date(t.reminderAt).getTime() <= Date.now();
+}
+function fireAlert(t){
+  const label = "N°"+t.code+" — "+t.title;
+  if(typeof Notification !== "undefined" && Notification.permission === "granted"){
+    try{ new Notification("Rappel de tâche KAM", {body:label, tag:t.id}); }catch(e){}
+  }
+  showToast(label);
+}
+function showToast(msg){
+  const el = document.getElementById("toast");
+  el.innerHTML = "🔔 <span>"+esc(msg)+"</span>";
+  el.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>el.classList.remove("show"), 4000);
+}
+setInterval(()=>{
+  let changed = false;
+  state.tasks.forEach(t=>{
+    if(isDue(t) && !notified.has(t.id)){
+      notified.add(t.id);
+      t.notified = true;
+      changed = true;
+      fireAlert(t);
+    }
+  });
+  if(changed){ save(); if(state.view==="alerts"||state.view==="today") render(); }
+}, 20000);
+
+function cycleStatus(id){
+  const t = state.tasks.find(x=>x.id===id);
+  const idx = STATUS_ORDER.indexOf(t.status);
+  t.status = STATUS_ORDER[(idx+1)%STATUS_ORDER.length];
+  save(); render();
+}
+function deleteTask(id){
+  state.tasks = state.tasks.filter(t=>t.id!==id);
+  save(); render();
+}
+function updateTask(id, patch){
+  const t = state.tasks.find(x=>x.id===id);
+  Object.assign(t, patch);
+  save(); render();
+}
+function addTask(form){
+  state.tasks.unshift(Object.assign({id:"t-"+Date.now(), status:"À faire", notified:false}, form));
+  state.showAdd = false;
+  save(); render();
+}
+
+// ---------------- render helpers ----------------
+function stamp(code){ return '<span class="stamp">🔖 N°'+esc(code)+'</span>'; }
+function priorityDot(p){ return '<span class="priority-dot"><span class="dot" style="background:'+PRIORITY_COLOR[p]+'"></span>'+p+'</span>'; }
+
+function taskRow(t, withDelete){
+  const done = t.status === "Fait";
+  const reminder = t.reminderAt ? '<span class="reminder-tag">⏰ '+new Date(t.reminderAt).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+'</span>' : "";
+  return '<div class="task" style="border-left-color:'+PRIORITY_COLOR[t.priority]+'">'
+    + '<button class="status-btn" onclick="cycleStatus(\''+t.id+'\')" title="'+esc(t.status)+'">'+(done?'✅':'⬡')+'</button>'
+    + '<div class="body">'
+    +   '<div class="meta">'+stamp(t.code)+'<span class="type-tag">'+esc(t.type)+'</span>'+reminder+'</div>'
+    +   '<p class="tt'+(done?' done':'')+'">'+esc(t.title)+'</p>'
+    + '</div>'
+    + priorityDot(t.priority)
+    + '<span class="status-pill" style="background:'+STATUS_COLOR[t.status]+'">'+t.status+'</span>'
+    + '<button class="iconbtn" onclick="openEdit(\''+t.id+'\')">✎</button>'
+    + (withDelete ? '<button class="iconbtn" onclick="deleteTask(\''+t.id+'\')">🗑</button>' : '')
+    + '</div>';
+}
+function emptyState(text){ return '<div class="empty">⚠ '+esc(text)+'</div>'; }
+
+function todayView(){
+  const dayIdx = new Date().getDay();
+  const isWeekday = dayIdx>=1 && dayIdx<=5;
+  const todayName = isWeekday ? DAYS[dayIdx-1] : "Week-end";
+  const list = isWeekday
+    ? state.tasks.filter(t=>t.day===todayName || t.day==="Variable")
+    : state.tasks.filter(t=>t.day==="Variable");
+  const order = {Haute:0,Moyenne:1,Basse:2};
+  list.sort((a,b)=>order[a.priority]-order[b.priority]);
+  return '<header class="view-head"><p class="eyebrow">'+esc(todayName)+'</p><h2 class="title">Ce qu\'il y a à faire</h2></header>'
+    + (list.length===0 ? emptyState("Rien de calé pour aujourd'hui. Va voir « Toutes les tâches » pour avancer sur le fond.")
+        : list.map(t=>taskRow(t,false)).join(""));
+}
+
+function weekView(){
+  let grid = '<div class="weekgrid"><div></div>' + DAYS.map(d=>'<div class="daycol-head">'+d+'</div>').join("");
+  SLOTS.forEach(slot=>{
+    grid += '<div class="slot-label">'+slot+'</div>';
+    DAYS.forEach(d=>{
+      const key = d+"-"+slot;
+      const val = state.week[key] || "";
+      const flex = val.includes("TERRAIN FLEXIBLE") ? " flex" : "";
+      grid += '<textarea class="'+flex.trim()+'" data-key="'+key+'" onchange="onWeekEdit(this)">'+esc(val)+'</textarea>';
+    });
+  });
+  grid += '</div>';
+  return '<header class="view-head"><h2 class="title">Semaine type</h2><p class="subtext">Trame bureau, avec 2 créneaux terrain flexibles. Modifie une case directement.</p></header>'
+    + '<div class="weekwrap">'+grid+'</div>';
+}
+function onWeekEdit(el){ state.week[el.dataset.key] = el.value; save(); render(false); }
+
+function tasksView(){
+  const types = ["Tous", ...Array.from(new Set(state.tasks.map(t=>t.type)))];
+  const filtered = state.tasks.filter(t=>{
+    if(state.filterType!=="Tous" && t.type!==state.filterType) return false;
+    if(state.filterPriority!=="Toutes" && t.priority!==state.filterPriority) return false;
+    if(state.filterStatus!=="Tous" && t.status!==state.filterStatus) return false;
+    if(state.query && !((t.code+" "+t.title+" "+t.type).toLowerCase().includes(state.query.toLowerCase()))) return false;
+    return true;
+  });
+  const sel = (opts, val, id) => '<select id="'+id+'" onchange="onFilterChange(\''+id+'\', this.value)">'
+    + opts.map(o=>'<option value="'+esc(o)+'"'+(o===val?' selected':'')+'>'+esc(o)+'</option>').join("") + '</select>';
+  return '<header class="view-head row"><div><h2 class="title">Toutes les tâches</h2><p class="subtext">'+filtered.length+' résultat(s)</p></div>'
+    + '<button class="btn btn-primary" onclick="state.showAdd=true; render();">+ Ajouter une tâche</button></header>'
+    + '<div class="filters">'
+    +   '<div class="search-wrap"><span class="icon">🔎</span><input type="text" placeholder="Rechercher…" value="'+esc(state.query)+'" oninput="state.query=this.value; render(false);"></div>'
+    +   sel(types, state.filterType, "filterType")
+    +   sel(["Toutes","Haute","Moyenne","Basse"], state.filterPriority, "filterPriority")
+    +   sel(["Tous", ...STATUS_ORDER], state.filterStatus, "filterStatus")
+    + '</div>'
+    + (filtered.length===0 ? emptyState("Aucune tâche ne correspond à ces filtres.") : filtered.map(t=>taskRow(t,true)).join(""));
+}
+function onFilterChange(id, val){ state[id]=val; render(false); }
+
+function alertsView(){
+  const withReminders = state.tasks.filter(t=>t.reminderAt);
+  const perm = (typeof Notification!=="undefined") ? Notification.permission : "unsupported";
+  const permLabel = {granted:"Notifications activées", denied:"Notifications bloquées par le navigateur", default:"Notifications pas encore activées", unsupported:"Notifications non supportées ici"}[perm];
+  return '<header class="view-head"><h2 class="title">Alertes</h2>'
+    + '<p class="subtext">L\'alerte se déclenche tant que cette page reste ouverte (onglet actif ou en arrière-plan). App totalement fermée = pas d\'alerte : c\'est une limite de toute application web, garde-la ouverte pendant tes heures de travail.</p></header>'
+    + '<div class="alert-status"><div class="left"><span style="font-size:20px">'+(perm==="granted"?"🔔":"🔕")+'</span><div><p class="lbl">'+permLabel+'</p><p class="sub">Un rappel visuel s\'affiche aussi dans l\'app dans tous les cas.</p></div></div>'
+    + '<div style="display:flex; gap:8px;">'
+    + (perm!=="granted" && perm!=="unsupported" ? '<button class="btn btn-primary" onclick="requestPermission()">Activer</button>' : '')
+    + '<button class="btn btn-outline" onclick="fireAlert({code:\'TEST\',title:\'Ceci est une alerte de test.\',id:\'test\'})">Tester</button>'
+    + '</div></div>'
+    + '<h3 class="section">Rappels programmés ('+withReminders.length+')</h3>'
+    + (withReminders.length===0 ? emptyState("Aucun rappel programmé. Ouvre une tâche depuis « Toutes les tâches » pour lui donner une date/heure d'alerte.")
+      : withReminders.map(t=>'<div class="task" style="border-left-color:'+PRIORITY_COLOR[t.priority]+'">⏰<div class="body"><div class="meta">'+stamp(t.code)+'<span style="font-size:13px">'+esc(t.title)+'</span></div><p class="tt font-mono" style="font-size:11px; color:var(--slate)">'+new Date(t.reminderAt).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"})+'</p></div>'
+        + '<button class="iconbtn" onclick="openEdit(\''+t.id+'\')">✎</button>'
+        + '<button class="iconbtn" onclick="updateTask(\''+t.id+'\', {reminderAt:\'\', notified:false})">✕</button></div>').join(""));
+}
+async function requestPermission(){
+  if(typeof Notification==="undefined") return;
+  const p = await Notification.requestPermission();
+  if(p==="granted") showToast("Alertes activées dans ce navigateur.");
+  render();
+}
+
+// ---------------- modals ----------------
+function openEdit(id){ state.editingId = id; render(); }
+function closeModal(){ state.editingId = null; state.showAdd = false; render(); }
+
+function modalHtml(){
+  if(state.editingId){
+    const t = state.tasks.find(x=>x.id===state.editingId);
+    if(!t) return "";
+    return '<div class="overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">'
+      + '<div class="modal-head"><h3>N°'+esc(t.code)+' — modifier</h3><button class="iconbtn" onclick="closeModal()">✕</button></div>'
+      + '<p style="font-size:13px; margin-top:0">'+esc(t.title)+'</p>'
+      + '<label class="field"><span class="flabel">Statut</span><select id="ed-status">'+STATUS_ORDER.map(s=>'<option'+(s===t.status?' selected':'')+'>'+s+'</option>').join("")+'</select></label>'
+      + '<label class="field"><span class="flabel">Priorité</span><select id="ed-priority">'+["Haute","Moyenne","Basse"].map(s=>'<option'+(s===t.priority?' selected':'')+'>'+s+'</option>').join("")+'</select></label>'
+      + '<label class="field"><span class="flabel">Rappel (date et heure)</span><input type="datetime-local" id="ed-reminder" value="'+esc(t.reminderAt)+'"></label>'
+      + '<label class="field"><span class="flabel">Notes</span><textarea id="ed-notes" rows="3">'+esc(t.notes)+'</textarea></label>'
+      + '<button class="btn btn-primary" style="width:100%; justify-content:center" onclick="saveEdit(\''+t.id+'\')">💾 Enregistrer</button>'
+      + '</div></div>';
+  }
+  if(state.showAdd){
+    return '<div class="overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()">'
+      + '<div class="modal-head"><h3>Nouvelle tâche</h3><button class="iconbtn" onclick="closeModal()">✕</button></div>'
+      + '<label class="field"><span class="flabel">Titre</span><input type="text" id="ad-title" placeholder="Ex. Relancer CIDIVET sur commande en attente"></label>'
+      + '<div class="grid2">'
+      +   '<label class="field"><span class="flabel">Catégorie</span><input type="text" id="ad-type" value="Action terrain"></label>'
+      +   '<label class="field"><span class="flabel">Code (libre)</span><input type="text" id="ad-code" placeholder="ex. 4060-b"></label>'
+      + '</div>'
+      + '<div class="grid2">'
+      +   '<label class="field"><span class="flabel">Priorité</span><select id="ad-priority"><option>Haute</option><option selected>Moyenne</option><option>Basse</option></select></label>'
+      +   '<label class="field"><span class="flabel">Jour</span><select id="ad-day">'+[...DAYS,"Variable"].map(d=>'<option'+(d==="Variable"?' selected':'')+'>'+d+'</option>').join("")+'</select></label>'
+      + '</div>'
+      + '<label class="field"><span class="flabel">Rappel (optionnel)</span><input type="datetime-local" id="ad-reminder"></label>'
+      + '<button class="btn btn-primary" style="width:100%; justify-content:center" onclick="submitAdd()">+ Créer la tâche</button>'
+      + '</div></div>';
+  }
+  return "";
+}
+function saveEdit(id){
+  updateTask(id, {
+    status: document.getElementById("ed-status").value,
+    priority: document.getElementById("ed-priority").value,
+    reminderAt: document.getElementById("ed-reminder").value,
+    notes: document.getElementById("ed-notes").value,
+    notified: false,
+  });
+  closeModal();
+}
+function submitAdd(){
+  const title = document.getElementById("ad-title").value.trim();
+  if(title.length < 3) return;
+  addTask({
+    type: document.getElementById("ad-type").value || "Divers",
+    code: document.getElementById("ad-code").value || "-",
+    title, freq: "Ponctuel",
+    priority: document.getElementById("ad-priority").value,
+    day: document.getElementById("ad-day").value,
+    reminderAt: document.getElementById("ad-reminder").value,
+    notes: "",
+  });
+}
+
+// ---------------- shell / nav ----------------
+function setView(v){ state.view = v; render(); }
+function navBtn(view, icon, label, badge, badgeClass){
+  const active = state.view===view;
+  return '<button class="navbtn'+(active?' active':'')+'" onclick="setView(\''+view+'\')">'+icon+' '+label
+    + (badge ? '<span class="badge'+(badgeClass?' '+badgeClass:'')+'">'+badge+'</span>' : '') + '</button>';
+}
+
+function render(full){
+  const activeCount = state.tasks.filter(t=>t.status!=="Fait").length;
+  const dueSoon = state.tasks.filter(t=>t.reminderAt && !t.notified && isDue(t));
+  const dayIdx = new Date().getDay();
+  const isWeekday = dayIdx>=1 && dayIdx<=5;
+  const todayName = isWeekday ? DAYS[dayIdx-1] : null;
+  const todaysCount = (isWeekday ? state.tasks.filter(t=>t.day===todayName || t.day==="Variable") : state.tasks.filter(t=>t.day==="Variable")).length;
+
+  const shell = '<div class="sidebar"><div class="sidebar-inner">'
+    + '<div class="brand"><span style="font-size:20px">🔖</span><h1 class="font-display">Poste de Pilotage</h1></div>'
+    + '<p class="brand-sub">KAM · Cameroun / Gabon / Congo</p>'
+    + '<nav class="tabs">'
+    +   navBtn("today","🌅","Aujourd'hui", todaysCount)
+    +   navBtn("week","📅","Semaine")
+    +   navBtn("tasks","☑","Toutes les tâches", activeCount)
+    +   navBtn("alerts","📡","Alertes", dueSoon.length, "red")
+    + '</nav></div>'
+    + '<div class="sidebar-footer">'+state.tasks.length+' tâches · '+activeCount+' actives</div>'
+    + '</div>'
+    + '<main>' + (
+        state.view==="today" ? todayView() :
+        state.view==="week" ? weekView() :
+        state.view==="tasks" ? tasksView() :
+        alertsView()
+      ) + '</main>';
+
+  document.getElementById("app").innerHTML = shell;
+  const modalRoot = document.getElementById("modalRoot");
+  document.querySelectorAll(".overlay").forEach(e=>e.remove());
+  document.body.insertAdjacentHTML("beforeend", modalHtml());
+}
+
+// expose functions used by inline handlers
+window.cycleStatus = cycleStatus;
+window.deleteTask = deleteTask;
+window.updateTask = updateTask;
+window.openEdit = openEdit;
+window.closeModal = closeModal;
+window.saveEdit = saveEdit;
+window.submitAdd = submitAdd;
+window.setView = setView;
+window.onWeekEdit = onWeekEdit;
+window.onFilterChange = onFilterChange;
+window.requestPermission = requestPermission;
+window.fireAlert = fireAlert;
+window.state = state;
+
+render();
+
+// ---------------- PWA install prompt ----------------
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("installBanner").style.display = "flex";
+});
+document.getElementById("installBtn").addEventListener("click", async ()=>{
+  document.getElementById("installBanner").style.display = "none";
+  if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; }
+});
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

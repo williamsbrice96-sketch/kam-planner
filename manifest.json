@@ -1,0 +1,14 @@
+{
+  "name": "Poste de Pilotage KAM",
+  "short_name": "KAM Planner",
+  "description": "Gestion des tâches, planning hebdomadaire et alertes pour le poste KAM (Cameroun / Gabon / Congo)",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#EEE8D9",
+  "theme_color": "#1F4E42",
+  "orientation": "any",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
